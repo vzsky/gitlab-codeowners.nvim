@@ -1,3 +1,6 @@
+# Gitlab CodeOwners 
+Read through the gitlab's codeowners format. Easily see the owner of each file.
+
 ## Installation
 
 ### Lazy.nvim 
@@ -16,7 +19,7 @@ lualine_x = {
         local co = require("gitlab-codeowners").short_codeowners() -- or codeowners()
         if not co then return "" else return co end
     end,
-    'filetype',
+    -- filetype, add other stuffs, ...
 },
 
 
