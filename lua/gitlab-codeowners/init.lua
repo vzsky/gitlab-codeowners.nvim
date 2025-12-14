@@ -2,29 +2,27 @@ local main = require("gitlab-codeowners.main")
 
 local M = {}
 
-local UNOWNED = "unowned"
-
 local function this_path()
 	return vim.api.nvim_buf_get_name(0)
 end
 
-function M.codeOwners()
+function M.codeowners()
 	local path = this_path()
 	local codeOwners = main.get_codeowners(path)
 
 	if not codeOwners or next(codeOwners) == nil then
-		return UNOWNED
+		return "unowned"
 	end
 
 	return table.concat(codeOwners, ", ")
 end
 
-function M.shortCodeOwners()
+function M.short_codeowners()
 	local path = this_path()
 	local codeOwners = main.get_codeowners(path)
 
 	if not codeOwners or next(codeOwners) == nil then
-		return UNOWNED
+		return nil
 	end
 
 	if #codeOwners > 3 then
@@ -37,7 +35,7 @@ end
 function M.setup(opts)
 	opts = opts or {}
 	vim.api.nvim_create_user_command("GitlabCodeowners", function ()
-    print(M.codeOwners())
+    print(M.codeowners())
   end, { })
 end
 
