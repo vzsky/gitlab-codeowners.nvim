@@ -1,3 +1,9 @@
+##################################################################
+# THIS CODEOWNERS FILE IS GITLAB FORMATTED 
+# SORRY GITHUB :( 
+# THERE IS NO ERROR NOR REAL USE-CASE EXCEPT FOR REAL TESTING
+##################################################################
+
 * @default-owner @vzsky
 
 [Files]
