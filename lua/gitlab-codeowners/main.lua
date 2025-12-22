@@ -39,6 +39,7 @@ local function path_relative_to_root(path, root_repo)
 end
 
 function M.get_codeowners_file(path)
+  -- TODO: this approach will not work great with files in .gitlab or in docs
 	local locations_from_root = {
 		"/CODEOWNERS",
 		"/docs/CODEOWNERS",
@@ -85,69 +86,104 @@ local function glob_to_regex(p)
 end
 
 function M.read_sections(codeowners_file)
-	local sections = {}
-	local current_section = {}
+  local sections = {}
+  local current_section = {}
+  local current_defowner = {}
 
-	for line in io.lines(codeowners_file) do
-		local trimmed = line:match("^%s*(.-)%s*$")
-		if trimmed ~= "" then
-			local section_name = trimmed:match("^%[(.-)%]$")
-			if section_name then
-				if #current_section > 0 then
-					table.insert(sections, current_section)
-				end
-				current_section = {}
-			elseif not trimmed:match("^#") then
-				trimmed = trimmed:gsub("%s+#.*$", "")
-				local pattern, owners = trimmed:match("([^%s]+)%s+(.+)$")
-				if pattern and owners then
-					local list = {}
-					for o in owners:gmatch("%S+") do
-						table.insert(list, o)
-					end
-					table.insert(current_section, { pattern = pattern, owners = list })
-				end
-			end
-		end
-	end
+  local function handle_line(line)
+    line = line:match("^[^#]*")
+    line = line:match("^%s*(.-)%s*$")
+    if line == "" then
+      return
+    end
 
-	if #current_section > 0 then
-		table.insert(sections, current_section)
-	end
-	return sections
+    local section_name, owner_str = line:match("^%[(.-)%](.*)$")
+    if section_name then
+      if #current_section > 0 then
+        table.insert(sections, current_section)
+      end
+
+      current_section = {}
+      current_defowner = {}
+
+      for o in owner_str:gmatch("%S+") do
+        table.insert(current_defowner, o)
+      end
+
+      return
+    end
+
+    local pattern, owners_str = line:match("([^%s]+)%s*(.*)")
+
+    local owners = {}
+    if owners_str then
+      for o in owners_str:gmatch("%S+") do
+        table.insert(owners, o)
+      end
+    end
+
+    if #owners == 0 then
+      for _, o in ipairs(current_defowner) do
+        table.insert(owners, o)
+      end
+    end
+
+    if not pattern or #owners == 0 then
+      return
+    end
+
+    table.insert(current_section, {
+      pattern = pattern,
+      owners = owners,
+    })
+  end
+
+  for line in io.lines(codeowners_file) do
+    handle_line(line)
+  end
+
+  if #current_section > 0 then
+    table.insert(sections, current_section)
+  end
+
+  return sections
 end
 
 function M.get_codeowners(path)
-	local result = M.get_codeowners_file(path)
-	if not result or not result.co_file then
-		return nil
-	end
+  local result = M.get_codeowners_file(path)
+  if not result or not result.co_file then
+    return nil
+  end
 
-	local codeowners_file = result.co_file
-	local root_repo = result.repo
-	path = path_relative_to_root(path, root_repo)
-  if not path then return nil end
+  local codeowners_file = result.co_file
+  local root_repo = result.repo
+  path = path_relative_to_root(path, root_repo)
+  if not path then
+    return nil
+  end
 
-	local sections = M.read_sections(codeowners_file)
-	local owners = {}
+  local sections = M.read_sections(codeowners_file)
+  local owners = {}
 
-	for _, rules in ipairs(sections) do
-		local best = nil
-		for _, r in ipairs(rules) do
-			local regex = glob_to_regex(r.pattern)
-			if path:match(regex) then
-				best = r
-			end
-		end
-		if best then
-			for _, o in ipairs(best.owners) do
-				table.insert(owners, o)
-			end
-		end
-	end
+  for _, rules in ipairs(sections) do
+    local best = nil
 
-	owners = unique(owners)
-	return owners
+    for _, r in ipairs(rules) do
+      local regex = glob_to_regex(r.pattern)
+      if path:match(regex) then
+        best = r
+      end
+    end
+
+    if best then
+      for _, o in ipairs(best.owners) do
+        table.insert(owners, o)
+      end
+    end
+  end
+
+  owners = unique(owners)
+  return owners
 end
 
 return M
